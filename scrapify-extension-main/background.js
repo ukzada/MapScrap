@@ -41,8 +41,8 @@ const sharedInlineWebsiteOwnerRegistries = new Map();
 const ACTION_DEFAULT_TITLE = "Scrapify";
 const ACTION_RUNNING_COLOR = "#127a3e";
 const ACTION_STOPPING_COLOR = "#b54708";
-const FOCUSED_CRAWL_MAX_PAGES = 8;
-const FOCUSED_CRAWL_MAX_PATHS_PER_TYPE = 2;
+const FOCUSED_CRAWL_MAX_PAGES = 12;
+const FOCUSED_CRAWL_MAX_PATHS_PER_TYPE = 3;
 const ENRICH_WORKER_DEFAULT = 3;
 const ENRICH_WORKER_MAX = 6;
 const ENRICH_CHALLENGE_CONTINUE_DEFAULT = 1;
@@ -52,13 +52,26 @@ const ENRICH_CHALLENGE_MODE_SKIP = "auto_then_skip";
 const ENRICH_CHALLENGE_MODE_SKIP_IMMEDIATE = "skip_immediately";
 const FOCUSED_CRAWL_SEED_PATHS = [
   "/contact",
-  "/about",
-  "/team",
-  "/careers",
   "/contact-us",
+  "/get-in-touch",
+  "/reach-us",
+  "/connect",
+  "/about",
   "/about-us",
+  "/who-we-are",
+  "/our-story",
+  "/company",
+  "/team",
   "/our-team",
-  "/jobs"
+  "/meet-the-team",
+  "/people",
+  "/staff",
+  "/leadership",
+  "/management",
+  "/careers",
+  "/jobs",
+  "/location",
+  "/hire-us"
 ];
 let hiddenScanWindowId = null;
 const controlPanelRestoreInFlight = new Set();
@@ -5086,16 +5099,16 @@ function focusedCrawlPageType(url) {
   }
   if (!lowerPath) return "";
 
-  if (/(^|[\/\s_-])(contact(?:-?us)?|get-in-touch|reach-us|call-us)([\/\s_-]|$)/i.test(lowerPath)) {
+  if (/(^|[\/\s_-])(contact(?:-?us)?|get-?in-?touch|reach-?us|call-?us|connect|hire-?us|location)([\/\s_-]|$)/i.test(lowerPath)) {
     return "contact";
   }
-  if (/(^|[\/\s_-])(team|our-team|ourteam|leadership|management|staff)([\/\s_-]|$)/i.test(lowerPath)) {
+  if (/(^|[\/\s_-])(team|our-team|ourteam|meet-?the-?team|leadership|management|staff|people)([\/\s_-]|$)/i.test(lowerPath)) {
     return "team";
   }
-  if (/(^|[\/\s_-])(about(?:-?us)?|our-story|who-we-are|company|founder|owner)([\/\s_-]|$)/i.test(lowerPath)) {
+  if (/(^|[\/\s_-])(about(?:-?us)?|our-?story|who-?we-?are|company|founder|owner)([\/\s_-]|$)/i.test(lowerPath)) {
     return "about";
   }
-  if (/(^|[\/\s_-])(careers?|jobs?|join-us|work-with-us|vacanc(y|ies))([\/\s_-]|$)/i.test(lowerPath)) {
+  if (/(^|[\/\s_-])(careers?|jobs?|join-?us|work-?with-?us|vacanc(y|ies))([\/\s_-]|$)/i.test(lowerPath)) {
     return "careers";
   }
   return "";
@@ -5253,7 +5266,7 @@ async function scanWebsite(startUrl, options) {
   const effectiveMaxPages = maxPagesCap;
   const sitemapQueueBudget = Math.max(6, effectiveMaxPages * 2);
   const perPageLinkBudget = Math.max(24, effectiveMaxPages * 4);
-  const noSignalExitThreshold = socialRootScan ? 2 : focusedSinglePageScan ? 1 : 4;
+  const noSignalExitThreshold = socialRootScan ? 2 : focusedSinglePageScan ? 1 : 5;
 
   const seedUrls = socialRootScan
     ? buildSocialProbeUrls(firstUrl)
@@ -6526,6 +6539,30 @@ function domainMatchesHost(emailDomain, host) {
   );
 }
 
+function extractSldRoot(hostname) {
+  const host = normalizeHostForMatch(hostname);
+  if (!host) return "";
+  const labels = host.split(".");
+  if (labels.length < 2) return labels[0] || "";
+  const twoPartTlds = new Set([
+    "co.uk", "co.nz", "co.za", "co.in", "co.jp", "co.kr",
+    "com.au", "com.br", "com.sg", "com.mx", "com.ar", "com.co",
+    "net.au", "org.au", "org.uk", "me.uk"
+  ]);
+  const lastTwo = labels.slice(-2).join(".");
+  if (twoPartTlds.has(lastTwo) && labels.length >= 3) {
+    return labels[labels.length - 3] || "";
+  }
+  return labels[labels.length - 2] || "";
+}
+
+function domainRootMatchesHost(emailDomain, host) {
+  const emailRoot = extractSldRoot(emailDomain).replace(/[-_]/g, "").toLowerCase();
+  const hostRoot = extractSldRoot(host).replace(/[-_]/g, "").toLowerCase();
+  if (!emailRoot || !hostRoot || emailRoot.length < 4) return false;
+  return emailRoot === hostRoot;
+}
+
 function isFreeMailboxDomain(domainInput) {
   const domain = normalizeHostForMatch(domainInput);
   if (!domain) return false;
@@ -6533,14 +6570,73 @@ function isFreeMailboxDomain(domainInput) {
     domain === "gmail.com" ||
     domain === "outlook.com" ||
     domain === "hotmail.com" ||
+    domain === "hotmail.co.uk" ||
+    domain === "hotmail.fr" ||
+    domain === "hotmail.de" ||
+    domain === "hotmail.es" ||
+    domain === "hotmail.it" ||
     domain === "live.com" ||
+    domain === "live.co.uk" ||
+    domain === "live.com.au" ||
+    domain === "live.ca" ||
+    domain === "live.fr" ||
+    domain === "live.de" ||
+    domain === "msn.com" ||
     domain === "yahoo.com" ||
+    domain === "yahoo.co.uk" ||
+    domain === "yahoo.co.in" ||
+    domain === "yahoo.com.au" ||
+    domain === "yahoo.ca" ||
+    domain === "yahoo.fr" ||
+    domain === "yahoo.de" ||
+    domain === "yahoo.es" ||
+    domain === "yahoo.it" ||
     domain === "ymail.com" ||
     domain === "icloud.com" ||
     domain === "me.com" ||
+    domain === "mac.com" ||
     domain === "aol.com" ||
     domain === "proton.me" ||
-    domain === "protonmail.com"
+    domain === "protonmail.com" ||
+    domain === "pm.me" ||
+    domain === "fastmail.com" ||
+    domain === "fastmail.fm" ||
+    domain === "zoho.com" ||
+    domain === "zohomail.com" ||
+    domain === "mail.com" ||
+    domain === "email.com" ||
+    domain === "gmx.com" ||
+    domain === "gmx.net" ||
+    domain === "gmx.de" ||
+    domain === "gmx.us" ||
+    domain === "yandex.com" ||
+    domain === "yandex.ru" ||
+    domain === "yandex.ua" ||
+    domain === "tutanota.com" ||
+    domain === "tuta.io" ||
+    domain === "hey.com" ||
+    domain === "comcast.net" ||
+    domain === "att.net" ||
+    domain === "sbcglobal.net" ||
+    domain === "verizon.net" ||
+    domain === "bellsouth.net" ||
+    domain === "cox.net" ||
+    domain === "earthlink.net" ||
+    domain === "charter.net" ||
+    domain === "rocketmail.com" ||
+    domain === "inbox.com" ||
+    domain === "rediffmail.com" ||
+    domain === "btinternet.com" ||
+    domain === "virginmedia.com" ||
+    domain === "sky.com" ||
+    domain === "talktalk.net" ||
+    domain === "ntlworld.com" ||
+    domain === "bigpond.com" ||
+    domain === "bigpond.net.au" ||
+    domain === "optusnet.com.au" ||
+    domain === "shaw.ca" ||
+    domain === "rogers.com" ||
+    domain === "sympatico.ca"
   );
 }
 
@@ -6571,7 +6667,9 @@ function isEmailAlignedWithBusiness(email, preferredHostsInput) {
       .filter(Boolean)
     : [];
   if (preferredHosts.length === 0) return true;
-  return preferredHosts.some((host) => domainMatchesHost(domain, host));
+  if (preferredHosts.some((host) => domainMatchesHost(domain, host))) return true;
+  if (preferredHosts.some((host) => domainRootMatchesHost(domain, host))) return true;
+  return false;
 }
 
 function hasMailboxPrefix(localPart, prefix) {
@@ -8348,8 +8446,16 @@ async function extractPageDataScript(extractionOptionsInput) {
     let text = decodeHtmlEntities(decodeEscapedText(value));
     if (!text) return "";
     text = text
+      .replace(/&#64;/gi, "@")
+      .replace(/&#46;/gi, ".")
       .replace(/\s*(?:\(|\[|\{)?\s*(?:at|where)\s*(?:\)|\]|\})\s*/gi, "@")
       .replace(/\s*(?:\(|\[|\{)?\s*(?:dot|dt)\s*(?:\)|\]|\})\s*/gi, ".")
+      .replace(/_at_/gi, "@")
+      .replace(/_dot_/gi, ".")
+      .replace(/-at-/gi, "@")
+      .replace(/-dot-/gi, ".")
+      .replace(/\/at\//gi, "@")
+      .replace(/\/dot\//gi, ".")
       .replace(/\s+at\s+/gi, "@")
       .replace(/\s+dot\s+/gi, ".");
     return normalize(text);
@@ -9120,6 +9226,36 @@ async function extractPageDataScript(extractionOptionsInput) {
     }
   }
 
+  const itempropEmailNodes = Array.from(document.querySelectorAll([
+    "[itemprop='email']",
+    "[itemprop='emailAddress']",
+    "address",
+    "[data-email]",
+    "[class*='email' i]",
+    "[id*='email' i]"
+  ].join(","))).slice(0, 200);
+  for (const node of itempropEmailNodes) {
+    const dataEmail = normalize(node.getAttribute("data-email") || node.getAttribute("content") || "");
+    if (dataEmail) {
+      collectEmailsFromText(deobfuscateEmailText(dataEmail), emails);
+    }
+    const nodeText = normalize(node.textContent || node.innerText || "");
+    if (nodeText) {
+      collectEmailsFromText(nodeText, emails);
+    }
+    const href = normalize(node.getAttribute("href") || "");
+    if (href.toLowerCase().startsWith("mailto:")) {
+      const extracted = href.replace(/^mailto:/i, "").split("?")[0].trim().toLowerCase();
+      if (isLikelyEmail(extracted)) emails.add(extracted);
+    }
+  }
+
+  const footerNodes = Array.from(document.querySelectorAll("footer, [role='contentinfo']")).slice(0, 10);
+  for (const node of footerNodes) {
+    const text = normalize(node.textContent || node.innerText || "");
+    if (text) collectEmailsFromText(text, emails);
+  }
+
   const phoneMatches = bodyText.match(/(?:\+?\d[\d().\s-]{7,}\d)/g) || [];
   for (const value of phoneMatches) {
     const phone = normalizePhone(value);
@@ -9303,9 +9439,9 @@ async function extractPageDataScript(extractionOptionsInput) {
   const inferFocusedTypeFromText = (value) => {
     const text = normalize(value).toLowerCase();
     if (!text) return "";
-    if (/(?:^|\b)(contact(?:\s*us)?|get\s*in\s*touch|reach\s*us|call\s*us)(?:\b|$)/i.test(text)) return "contact";
+    if (/(?:^|\b)(contact(?:\s*us)?|get\s*in\s*touch|reach\s*us|call\s*us|connect|hire\s*us|location)(?:\b|$)/i.test(text)) return "contact";
     if (/(?:^|\b)(about(?:\s*us)?|our\s*story|who\s*we\s*are|company)(?:\b|$)/i.test(text)) return "about";
-    if (/(?:^|\b)(team|our\s*team|leadership|management|staff|founder|owner)(?:\b|$)/i.test(text)) return "team";
+    if (/(?:^|\b)(team|our\s*team|meet\s*the\s*team|leadership|management|staff|people|founder|owner)(?:\b|$)/i.test(text)) return "team";
     if (/(?:^|\b)(careers?|jobs?|join\s*us|work\s*with\s*us|vacanc(?:y|ies))(?:\b|$)/i.test(text)) return "careers";
     return "";
   };
